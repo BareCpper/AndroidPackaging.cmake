@@ -10,7 +10,6 @@ endif()
 
 target_compile_definitions(AndroidPackaging_Examples_Basic
     PRIVATE    
-        $<$<BOOL:${TobiiNativeSDK_FOUND}>:USE_TOBII_SDK> 
         $<$<BOOL:${ANDROID}>:PLATFORM_ANDROID>
         $<$<BOOL:${WIN32}>:PLATFORM_WIN32> 
 )
@@ -29,7 +28,6 @@ target_link_libraries( AndroidPackaging_Examples_Basic
     $<$<BOOL:${ANDROID}>:android> # @note libandroid.so
     $<$<BOOL:${ANDROID}>:android::native_app_glue>
     $<$<BOOL:${ANDROID}>:log>
-    $<$<BOOL:${ANDROID}>:GLESv3>
 )
                        
 target_sources( AndroidPackaging_Examples_Basic
