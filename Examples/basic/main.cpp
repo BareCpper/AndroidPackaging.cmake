@@ -20,13 +20,15 @@
 #include <memory>
 #include <cstdlib>
 #include <cstring>
-#include <jni.h>
 #include <cerrno>
 #include <cassert>
 
-#include <EGL/egl.h>
-#include <GLES/gl.h>
 
+#if __ANDROID__
+//#include <EGL/egl.h>
+//#include <GLES/gl.h>
+
+#include <jni.h>
 #include <android/sensor.h>
 #include <android/log.h>
 #include <android_native_app_glue.h>
@@ -41,8 +43,8 @@
  */
 void android_main(struct android_app* state)
 {
-
     // loop waiting for stuff to do.
+    LOGI("Hello, Android world!");
 
     while (true) {
         // Read all pending events.
@@ -50,22 +52,28 @@ void android_main(struct android_app* state)
         int events;
         struct android_poll_source* source;
 
-        // If not animating, we will block forever waiting for events.
-        // If animating, we loop until all events are read, then continue
-        // to draw the next frame of animation.
-        while ((ident = ALooper_pollAll(0, nullptr, &events,
-            (void**)&source)) >= 0) {
-
+        // @note Block forever waiting for events due to '-1', use 0 if animating
+        while ((ident = ALooper_pollAll(-1, nullptr, &events,(void**)&source)) >= 0) 
+        {
             // Process this event.
-            if (source != nullptr) {
+            if (source != nullptr) 
                 source->process(state, source);
-            }
 
             // Check if we are exiting.
-            if (state->destroyRequested != 0) {
-
+            if (state->destroyRequested != 0)
                 return;
-            }
         }
     }
 }
+
+#else
+
+#include <iostream>
+#include <string>
+
+int main()
+{
+    std::cout << "Hello, world!\n";
+}
+
+#endif

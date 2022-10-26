@@ -35,6 +35,8 @@
       "binaryDir": "${sourceDir}/out/${hostSystemName}-build/${presetName}",
       "installDir": "${sourceDir}/out/install/${presetName}",
       "cacheVariables": {
+        "ANDROIDPACKAGING_BUILD_TESTING": true,
+        "ANDROIDPACKAGING_BUILD_EXAMPLES": true,
         "CMAKE_SYSTEM_NAME": "Android",
         "CMAKE_SYSTEM_VERSION": "29",
         "CMAKE_ANDROID_STL_TYPE": "c++_static",

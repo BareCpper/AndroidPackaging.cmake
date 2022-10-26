@@ -1,5 +1,12 @@
 # find_package(AndroidPackaging.cmake) # NOTE: Not required as using in-repo!
 
+if ( NOT DEFINED VERSION_COMMIT)
+    message( INFO "VERSION not defined. Recommend using `BareCpper/Version.cmake` for production\n"
+                            "https://github.com/BareCpper/Version.cmake"
+    )
+    set(VERSION_COMMIT 1)
+endif()
+
 if(ANDROID)    
     apk_add_executable( AndroidPackaging_Examples_Basic )
     #apk_add_package( openxr-sandbox )

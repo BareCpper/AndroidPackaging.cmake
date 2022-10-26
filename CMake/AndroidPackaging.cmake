@@ -1,20 +1,18 @@
 
+# Default template path
 if ( NOT ANDROIDPACKAGING_TEMPLATE_PATH )
     set(ANDROIDPACKAGING_TEMPLATE_PATH ${CMAKE_CURRENT_LIST_DIR}/AndroidPackaging.template )
 endif()
 
+# Default template configuration file list
 if ( NOT ANDROIDPACKAGING_CONFIGFILE )
     set(ANDROIDPACKAGING_CONFIGFILE ${ANDROIDPACKAGING_TEMPLATE_PATH}/.cmakeconfigure )
 endif()
-if ( NOT EXISTS ${ANDROIDPACKAGING_CONFIGFILE})
-    list(APPEND MISSING_ANDROID_COMPONENTS Config-File)
-endif()
 
-# build android_native_app_glue as a static lib
-set(APP_GLUE_DIR ${CMAKE_ANDROID_NDK}/sources/android/native_app_glue)
-add_library( android_native_app_glue STATIC ${APP_GLUE_DIR}/android_native_app_glue.c)
-add_library( android::native_app_glue ALIAS android_native_app_glue)
-target_include_directories( android_native_app_glue PUBLIC ${APP_GLUE_DIR} )
+option( ANDRODIPACKAGING_GRADLE_DAEMON 
+    "Use Gradle Daemon can be used for faster builds."
+    "WARNING: May NOT work under integrated IDE builds (MSVC 17.3.5)" 
+    FALSE )
 
 # Global variables
 set(GRADLE_USER_HOME ${PROJECT_BINARY_DIR}/.gradle )
@@ -30,6 +28,12 @@ function(make_apk_ndk_library TARGET)
         "" # Multi-value keywords
         ${ARGN}
     )
+
+    # build android_native_app_glue as a static lib
+    set(APP_GLUE_DIR ${CMAKE_ANDROID_NDK}/sources/android/native_app_glue)
+    add_library( android_native_app_glue STATIC ${APP_GLUE_DIR}/android_native_app_glue.c)
+    add_library( android::native_app_glue ALIAS android_native_app_glue)
+    target_include_directories( android_native_app_glue PUBLIC ${APP_GLUE_DIR} )
   
     add_custom_target(${TARGET}.APK ALL)
 
@@ -56,29 +60,31 @@ function(make_apk_ndk_library TARGET)
 
     set(ANDROIDPACKAGING_ROOT_NS "com.emteq") 
     
-    if ( DEFINED VERSION_COMMIT)
-    # Android uses an integer version-code to determine upgrade vs downgrade operations
-    # (MAJOR * 50000000) + (MINOR * 1000000) + (PATCH * 10000) + COMMIT"
-    # NOTE: Max 2100000000 i.e. MAJOR<42, MINOR<50, PATCH<100, COMMIT<10000
-    if ( VERSION_COMMIT GREATER_EQUAL 10000 )
-        message(WARNING "VERSION_PATCH ${VERSION_COMMIT} which exceeds the 10000")
+    if ( NOT DEFINED ANDROID_VERSIONCODE)
+        # Android uses an integer version-code to determine upgrade vs downgrade operations
+        # (MAJOR * 50000000) + (MINOR * 1000000) + (PATCH * 10000) + COMMIT"
+        # NOTE: Max 2100000000 i.e. MAJOR<42, MINOR<50, PATCH<100, COMMIT<10000
+        if ( VERSION_COMMIT GREATER_EQUAL 10000 )
+            message(WARNING "VERSION_PATCH ${VERSION_COMMIT} which exceeds the 10000")
+        endif()
+        if ( VERSION_COMMIT GREATER_EQUAL 10000 )
+            message(WARNING "VERSION_PATCH ${VERSION_PATCH} which exceeds the 100")
+        endif()
+        math(EXPR ANDROID_VERSIONCODE "((${VERSION_MAJOR}+0) * 50000000) + ((${VERSION_MINOR}+0) * 1000000) + ((${VERSION_PATCH}+0) * 10000) + ((${VERSION_COMMIT}+0) * 1)")
     endif()
-    if ( VERSION_COMMIT GREATER_EQUAL 10000 )
-        message(WARNING "VERSION_PATCH ${VERSION_PATCH} which exceeds the 100")
-    endif()
-    math(EXPR ANDROID_VERSIONCODE "(${VERSION_MAJOR} * 50000000) + (${VERSION_MINOR} * 1000000) + (${VERSION_PATCH} * 10000) + (${VERSION_COMMIT} * 1)")
-    else()
-        set(ANDROID_VERSIONCODE "${PROJECT_FULLVERSION}")
-    endif()
-    
+
     if ( ANDROID_VERSIONCODE GREATER_EQUAL 2100000000 )
         message(WARNING "Android 'application:versionCode' is ${ANDROID_VERSIONCODE} which exceeds the 2100000000 limit")
     endif()
+
+    if ( NOT DEFINED ANDROID_VERSIONNAME)
+        set(ANDROID_VERSIONNAME "${VERSION_FULL}" )
+    endif()    
     
     # Package==Application for now
     set(ANDROID_APPLICATION_NAME ${TARGET})  
     set(ANDROID_APPLICATION_ID ${ANDROIDPACKAGING_ROOT_NS}.${ANDROID_APPLICATION_NAME})
-    set(ANDROID_APPLICATION_VERSIONNAME "${PROJECT_FULLVERSION}")
+    set(ANDROID_APPLICATION_VERSIONNAME "${ANDROID_VERSIONNAME}")
     set(ANDROID_APPLICATION_VERSIONCODE "${ANDROID_VERSIONCODE}") 
 
     # Package==Application for now
@@ -87,11 +93,11 @@ function(make_apk_ndk_library TARGET)
     string(REPLACE "-" "_" ANDROID_PACKAGE_NAME ${ANDROID_PACKAGE_NAME}) # Sanitize package-id as Android package name cannot contain '-'
     
     set(ANDROID_PACKAGE_ID "${ANDROIDPACKAGING_ROOT_NS}.${ANDROID_PACKAGE_NAME}")
-    set(ANDROID_PACKAGE_VERSIONNAME "${PROJECT_FULLVERSION}") 
+    set(ANDROID_PACKAGE_VERSIONNAME "${ANDROID_VERSIONNAME}") 
     set(ANDROID_PACKAGE_VERSIONCODE ${ANDROID_VERSIONCODE}) 
 
-    message( "ANDROID_PACKAGE_NAME ${ANDROID_PACKAGE_NAME}")
-    message( "ANDROID_PACKAGE_ID ${ANDROID_PACKAGE_ID}")
+    #message( "ANDROID_PACKAGE_NAME ${ANDROID_PACKAGE_NAME}")
+    #message( "ANDROID_PACKAGE_ID ${ANDROID_PACKAGE_ID}")
 
     set(ANDROIDPACKAGING_SOURCES)
     set(ANDROID_ADDITIONAL_PARAMS)
@@ -102,6 +108,10 @@ function(make_apk_ndk_library TARGET)
     else()    
         set(ANDROID_ADDITIONAL_PARAMS "${ANDROID_ADDITIONAL_PARAMS} android:debuggable=\"true\"") #@todo  android:extractNativeLibs=\"true\"
         set(SOURCEEXCLUDE_DEBUGPREFIX  "") # Include debug files
+    endif()
+    
+    if ( NOT EXISTS ${ANDROIDPACKAGING_CONFIGFILE})
+        message(FATAL "Missing Config-File `${ANDROIDPACKAGING_CONFIGFILE}`")
     endif()
 
     # Load list of files in `android_project_template`
@@ -152,12 +162,16 @@ function(make_apk_ndk_library TARGET)
                         COMMAND_EXPAND_LISTS)
     endif()
 
+    if ( NOT ANDRODIPACKAGING_GRADLE_DAEMON )
+        set( GRADLE_OPTS_DAEMON --no-daemon)
+    endif()
+
     add_custom_command(
         TARGET ${TARGET}.APK
         #OUTPUT ${APK.BUILD_ROOT}/${hostSystemName}-build/
         COMMENT "Gathering gradle dependencies"
         COMMAND ./gradlew $<IF:$<CONFIG:Release>,assembleRelease,assembleDebug>
-            --no-daemon 
+            ${GRADLE_OPTS_DAEMON}
             --no-rebuild 
             --gradle-user-home ${GRADLE_USER_HOME}
         WORKING_DIRECTORY ${APK.BUILD_ROOT}
