@@ -10,8 +10,7 @@ if ( NOT ANDROIDPACKAGING_CONFIGFILE )
 endif()
 
 option( ANDRODIPACKAGING_GRADLE_DAEMON 
-    "Use Gradle Daemon can be used for faster builds."
-    "WARNING: May NOT work under integrated IDE builds (MSVC 17.3.5)" 
+    "Use Gradle Daemon can be used for faster builds. WARNING: May hang builds for integrated IDE (e.g. MSVC 17.3.5)" 
     FALSE )
 
 # Global variables
