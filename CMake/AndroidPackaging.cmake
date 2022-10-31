@@ -259,6 +259,13 @@ endfunction()
 function(apk_add_executable TARGET)
     add_library( ${TARGET} SHARED )
     make_apk_ndk_library( ${TARGET} ${ARGN} )
+
+    # We implcitly add common link targets
+    target_link_libraries( ${TARGET} 
+        $<$<BOOL:${ANDROID}>:android> # @note libandroid.so
+        $<$<BOOL:${ANDROID}>:android::native_app_glue>
+        $<$<BOOL:${ANDROID}>:log>
+    )
 endfunction()
 
 # TODO: good idea or not!? We still want to make normal executables for command-line tests etc!

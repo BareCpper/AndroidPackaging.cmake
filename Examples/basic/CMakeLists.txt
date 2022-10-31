@@ -7,12 +7,6 @@ if(ANDROID)
 else()
     add_executable( AndroidPackaging_Examples_Basic )
 endif()
-
-target_link_libraries( AndroidPackaging_Examples_Basic 
-    $<$<BOOL:${ANDROID}>:android> # @note libandroid.so
-    $<$<BOOL:${ANDROID}>:android::native_app_glue>
-    $<$<BOOL:${ANDROID}>:log>
-)
                        
 target_sources( AndroidPackaging_Examples_Basic
     PRIVATE
