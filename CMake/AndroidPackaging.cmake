@@ -1,25 +1,22 @@
 
-# Default template path
-if ( NOT ANDROIDPACKAGING_TEMPLATE_PATH )
-    set(ANDROIDPACKAGING_TEMPLATE_PATH ${CMAKE_CURRENT_LIST_DIR}/AndroidPackaging.template )
-endif()
-
-# Default template configuration file list
-if ( NOT ANDROIDPACKAGING_CONFIGFILE )
-    set(ANDROIDPACKAGING_CONFIGFILE ${ANDROIDPACKAGING_TEMPLATE_PATH}/.cmakeconfigure )
-endif()
-
 option( ANDRODIPACKAGING_GRADLE_DAEMON 
     "Use Gradle Daemon can be used for faster builds. WARNING: May hang builds for integrated IDE (e.g. MSVC 17.3.5)" 
     FALSE )
 
-# Global variables
-set(GRADLE_USER_HOME ${PROJECT_BINARY_DIR}/.gradle )
-set(ANDROID_ABIS ${CMAKE_ANDROID_ARCH_ABI})
-set(ANDROID_SDK ${CMAKE_ANDROID_SDK})
-set(ANDROID_NDK ${CMAKE_ANDROID_NDK})
+set(GRADLE_USER_HOME "${PROJECT_BINARY_DIR}/.gradle/" CACHE INTERNAL "Gradle cache")
 
+# build android_native_app_glue as a static lib
+set(APP_GLUE_DIR ${CMAKE_ANDROID_NDK}/sources/android/native_app_glue)
+add_library( android_native_app_glue STATIC ${APP_GLUE_DIR}/android_native_app_glue.c)
+add_library( android::native_app_glue ALIAS android_native_app_glue)
+target_include_directories( android_native_app_glue PUBLIC ${APP_GLUE_DIR} )
+  
 function(make_apk_ndk_library TARGET)
+    # Global variables
+    set(ANDROID_ABIS ${CMAKE_ANDROID_ARCH_ABI})
+    set(ANDROID_SDK ${CMAKE_ANDROID_SDK})
+    set(ANDROID_NDK ${CMAKE_ANDROID_NDK})
+
     cmake_parse_arguments(
         ""
         "" # Options
@@ -28,12 +25,22 @@ function(make_apk_ndk_library TARGET)
         ${ARGN}
     )
 
-    # build android_native_app_glue as a static lib
-    set(APP_GLUE_DIR ${CMAKE_ANDROID_NDK}/sources/android/native_app_glue)
-    add_library( android_native_app_glue STATIC ${APP_GLUE_DIR}/android_native_app_glue.c)
-    add_library( android::native_app_glue ALIAS android_native_app_glue)
-    target_include_directories( android_native_app_glue PUBLIC ${APP_GLUE_DIR} )
-  
+    # Default template configuration file list
+    if ( NOT DEFINED ANDROIDPACKAGING_TEMPLATE_PATH )
+        set(ANDROIDPACKAGING_TEMPLATE_PATH ${CMAKE_CURRENT_FUNCTION_LIST_DIR}/AndroidPackaging.template/ )
+    endif()
+    if ( NOT EXISTS ${ANDROIDPACKAGING_TEMPLATE_PATH})
+        message(FATAL_ERROR  "Missing Android Package-Template `${ANDROIDPACKAGING_TEMPLATE_PATH}`")
+    endif()
+
+    # Default template configuration file list
+    if ( NOT DEFINED ANDROIDPACKAGING_CONFIGFILE )
+        set(ANDROIDPACKAGING_CONFIGFILE ${ANDROIDPACKAGING_TEMPLATE_PATH}/.cmakeconfigure )
+    endif()    
+    if ( NOT EXISTS ${ANDROIDPACKAGING_CONFIGFILE})
+        message(FATAL_ERROR  "Missing Config-File `${ANDROIDPACKAGING_CONFIGFILE}`")
+    endif()
+
     add_custom_target(${TARGET}.APK ALL)
 
     set( APK.BUILD_ROOT "${CMAKE_CURRENT_BINARY_DIR}/${TARGET}_apk")
@@ -107,10 +114,6 @@ function(make_apk_ndk_library TARGET)
     else()    
         set(ANDROID_ADDITIONAL_PARAMS "${ANDROID_ADDITIONAL_PARAMS} android:debuggable=\"true\"") #@todo  android:extractNativeLibs=\"true\"
         set(SOURCEEXCLUDE_DEBUGPREFIX  "") # Include debug files
-    endif()
-    
-    if ( NOT EXISTS ${ANDROIDPACKAGING_CONFIGFILE})
-        message(FATAL "Missing Config-File `${ANDROIDPACKAGING_CONFIGFILE}`")
     endif()
 
     # Load list of files in `android_project_template`
